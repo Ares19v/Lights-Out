@@ -78,6 +78,11 @@ function App() {
     ws.onopen = () => {
       setIsConnected(true);
       addLog("System connection established.", "info");
+      
+      // Sync current config state to backend upon connection
+      Object.entries(config).forEach(([k, v]) => {
+        ws.send(JSON.stringify({ cmd: "set_config", key: k, value: v }));
+      });
     };
 
     ws.onclose = () => {
@@ -167,8 +172,28 @@ function App() {
         paddingBottom: "24px", marginBottom: "24px", borderBottom: `1px solid ${colors.border}`
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 600, letterSpacing: "-0.5px" }}>
-            Lights-Out <span style={{ color: colors.accent, fontWeight: 400 }}>Professional</span>
+          <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 600, letterSpacing: "-0.5px", display: "flex", alignItems: "center", gap: "12px" }}>
+            Lights-Out <span style={{ color: colors.accent, fontWeight: 400 }}>Auto Aiming System</span>
+            <div style={{ display: "flex", gap: "12px", alignItems: "center", position: "relative", top: "2px", marginLeft: "12px" }}>
+              <span 
+                onClick={() => setShowSettings(true)}
+                style={{ cursor: "pointer", fontSize: "16px", color: colors.text, opacity: 0.3, transition: "opacity 0.2s" }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = 0.3}
+                title="Engine Settings"
+              >
+                ⚙️
+              </span>
+              <span 
+                onClick={sendShutdown}
+                style={{ cursor: "pointer", fontSize: "16px", color: colors.text, opacity: 0.3, transition: "opacity 0.2s" }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = 0.3}
+                title="Shutdown Engine"
+              >
+                ⏻
+              </span>
+            </div>
           </h1>
           <div style={{ display: "flex", gap: "6px" }}>
             {Object.keys(THEMES).map(t => (
@@ -375,34 +400,6 @@ function App() {
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Footer Controls */}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "16px", marginTop: "auto", paddingTop: "12px" }}>
-            <span 
-              onClick={() => setShowSettings(true)}
-              style={{ 
-                cursor: "pointer", fontSize: "16px", color: colors.text, opacity: 0.3, 
-                transition: "opacity 0.2s"
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = 0.3}
-              title="Engine Settings"
-            >
-              ⚙️
-            </span>
-            <span 
-              onClick={sendShutdown}
-              style={{ 
-                cursor: "pointer", fontSize: "16px", color: colors.text, opacity: 0.3, 
-                transition: "opacity 0.2s"
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = 0.3}
-              title="Shutdown Engine"
-            >
-              ⏻
-            </span>
           </div>
 
         </div>

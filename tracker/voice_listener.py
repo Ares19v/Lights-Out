@@ -1,4 +1,4 @@
-﻿"""
+"""
 tracker/voice_listener.py
 Local voice command listener using openai-whisper (offline, no API key).
 Streams mic audio in rolling windows and parses for target keywords.
@@ -32,30 +32,43 @@ from tracker.target_resolver import all_keywords, resolve
 SAMPLE_RATE = 16000       # Whisper expects 16 kHz
 WINDOW_SECS = 3           # Rolling window to transcribe
 OVERLAP_SECS = 0.5        # Overlap to catch words at boundaries
-TRIGGER_WORDS = ("lock", "track", "target", "aim")
-
+TRIGGER_WORDS = ("lock", "track")
 
 class VoiceListener:
     """
-    Background thread that listens to mic, transcribes with Whisper tiny.en,
-    and fires on_command(target_str) when a target keyword is heard.
+    Background thread that listens to mic, transcribes with Whisper base.en,
+    and strictly fires on_command(target_str) when "lock/track <target>" is heard.
     """
 
     def __init__(self, on_command: Callable[[str], None]):
         if not _SD_AVAILABLE:
-            raise ImportError("sounddevice not installed. Run: pip install sounddevice")
+            print("[Voice] WARNING: sounddevice not installed. Voice disabled.")
         if not _WHISPER_AVAILABLE:
-            raise ImportError("openai-whisper not installed. Run: pip install openai-whisper")
-
+            print("[Voice] WARNING: openai-whisper not installed. Voice disabled.")
+            
         self.on_command = on_command
-        self._running = False
         self._thread: Optional[threading.Thread] = None
-        self._audio_queue: queue.Queue = queue.Queue()
+        self._running = False
+        self._audio_queue = queue.Queue()
         self._model = None
         self._last_transcript = ""
-        self.last_heard = ""   # For UI display
+        self.last_heard = ""
+
+        # Pre-build a strict trigger prompt to bias Whisper to listen for these words
+        self._prompt = "Commands: " + ", ".join([f"lock {kw}" for kw in list(all_keywords())[:10]])
+
+        # Pre-load on main thread to avoid Windows PyTorch deadlocks
+        if _WHISPER_AVAILABLE:
+            print("[Voice] Loading Whisper base.en model on main thread...")
+            try:
+                self._model = _whisper.load_model("base.en", device="cpu")
+                print("[Voice] Whisper ready. Waiting for activation...")
+            except Exception as e:
+                print(f"[Voice] Failed to load Whisper: {e}")
 
     def start(self):
+        if not _SD_AVAILABLE or not _WHISPER_AVAILABLE or self._model is None:
+            return
         if self._running:
             return
         self._running = True
@@ -67,14 +80,6 @@ class VoiceListener:
 
     # -- internals ----------------------------------------------------------
     def _run(self):
-        print("[Voice] Loading Whisper tiny.en model...")
-        try:
-            self._model = _whisper.load_model("tiny.en")
-            print("[Voice] Whisper ready. Listening for voice commands...")
-        except Exception as e:
-            print(f"[Voice] Failed to load Whisper: {e}")
-            self._running = False
-            return
 
         window_samples = int(SAMPLE_RATE * WINDOW_SECS)
         overlap_samples = int(SAMPLE_RATE * OVERLAP_SECS)
@@ -100,21 +105,23 @@ class VoiceListener:
 
     def _transcribe(self, audio: np.ndarray):
         try:
-            result = self._model.transcribe(audio, fp16=False, language="en")
+            result = self._model.transcribe(audio, fp16=False, language="en", initial_prompt=self._prompt)
             text = result.get("text", "").strip().lower()
+            
+            # Print ALL heard text for debugging
+            if text:
+                print(f"  [Voice Raw] {text}")
+                
             if not text or text == self._last_transcript:
                 return
             self._last_transcript = text
             self.last_heard = text
 
-            print(f"  [Voice] Heard: \"{text}\"")
-
             for keyword in all_keywords():
-                if keyword in text:
-                    has_trigger = any(tw in text for tw in TRIGGER_WORDS)
-                    is_multiword = len(keyword.split()) > 1
-                    if has_trigger or is_multiword:
-                        print(f"  [Voice] Command recognized: lock -> '{keyword}'")
+                for trigger in TRIGGER_WORDS:
+                    # Strict enforcement: must say "lock nose" or "track nose"
+                    if f"{trigger} {keyword}" in text:
+                        print(f"  [Voice] Command recognized: {trigger} -> '{keyword}'")
                         self.on_command(keyword)
                         return
 

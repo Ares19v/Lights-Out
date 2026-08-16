@@ -4,6 +4,9 @@ Real-time GPU-accelerated auto-targeting system.
 Implements Decoupled Inference, ROI Cropping, 1 Euro Filter, Optical Flow,
 Voice Commands, Multi-Target Display, and Confidence Threshold.
 """
+import os
+os.environ["GLOG_minloglevel"] = "3"  # Suppress MediaPipe INFO/WARNING/ERROR logs
+
 import argparse
 import threading
 import time
@@ -127,22 +130,14 @@ class TargetLock:
 
 
     def _start_voice(self):
-        if self._voice_listener is not None:
-            return
-        try:
-            from tracker.voice_listener import VoiceListener
-            self._voice_listener = VoiceListener(on_command=self.set_target)
+        if self._voice_listener:
             self._voice_listener.start()
             self.enable_voice = True
             print("  [Config] Voice Commands: ENABLED")
-        except ImportError as e:
-            print(f"  [Config] Voice unavailable: {e}")
-            self.enable_voice = False
 
     def _stop_voice(self):
         if self._voice_listener:
             self._voice_listener.stop()
-            self._voice_listener = None
         self.enable_voice = False
         print("  [Config] Voice Commands: DISABLED")
 
@@ -162,6 +157,13 @@ class TargetLock:
             print("[Model] YOLOv8n-Pose ready")
         except Exception as e:
             print(f"[Model] Pose unavailable: {e}")
+
+        # Pre-initialize Voice Listener on main thread (fixes PyTorch deadlock)
+        try:
+            from tracker.voice_listener import VoiceListener
+            self._voice_listener = VoiceListener(on_command=self.set_target)
+        except Exception as e:
+            print(f"[Voice] Initialization failed: {e}")
 
         if self.enable_depth:
             print("[Model] Loading MiDaS Depth Estimator...")
@@ -436,6 +438,13 @@ class TargetLock:
                 if self.ws:
                     self.ws.broadcast_frame(frame, status, label, confidence, self.miss_frames)
                 time.sleep(0.001)
+
+            # --- Internal Engine FPS Tracker ---
+            if not hasattr(self, "_last_fps_print"):
+                self._last_fps_print = time.time()
+            if time.time() - self._last_fps_print > 2.0:
+                print(f"  [Engine] Raw tracking speed: {self.renderer._fps} FPS")
+                self._last_fps_print = time.time()
 
         self.shutdown()
 

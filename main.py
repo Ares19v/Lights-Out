@@ -1,7 +1,8 @@
 """
-main.py  —  Lights-Out (Phase 1)
+main.py  —  Lights-Out (Phase 2)
 Real-time GPU-accelerated auto-targeting system.
-Implements Decoupled Inference, ROI Cropping, 1 Euro Filter, and Optical Flow.
+Implements Decoupled Inference, ROI Cropping, 1 Euro Filter, Optical Flow,
+Voice Commands, Multi-Target Display, and Confidence Threshold.
 """
 import argparse
 import threading
@@ -26,12 +27,20 @@ class TargetLock:
 
     def __init__(self, camera_src: int = 0, width: int = 1280, height: int = 720,
                  initial_target: str = "nose", enable_ws: bool = False, enable_depth: bool = False):
+        import torch
+        cuda_ok = torch.cuda.is_available()
+        gpu_name = torch.cuda.get_device_name(0) if cuda_ok else "CPU"
         print(f"╔════════════════════════════════════════════╗")
         print(f"  ═  L I G H T S - O U T  —  Auto Targeting System  ═  ")
         print(f"╚════════════════════════════════════════════╝")
-        
+        print(f"  [Device] {'GPU: ' + gpu_name if cuda_ok else 'CPU (install CUDA PyTorch for GPU)'}")
+
         self.enable_depth = enable_depth
-        
+        self.enable_gesture = False
+        self.enable_voice = False
+        self.enable_multi_target = True  # Show secondary crosshairs by default
+        self._voice_listener = None
+
         # State
         self.current_target: Optional[TargetDef] = None
         self.tracker = OneEuroTracker()
@@ -45,11 +54,12 @@ class TargetLock:
         # Threading / Inference State
         self.running = True
         self.ai_raw_pos = None
+        self.ai_all_pts = []      # All detected targets for multi-target display
         self.ai_updated = False
-        self.tracked_point = None  # numpy array for Optical Flow
+        self.tracked_point = None
         self.prev_gray = None
         self.miss_frames = 0
-        self.last_known_pos = None # For ROI cropping
+        self.last_known_pos = None
 
         # WebSocket server
         self.ws: Optional[WSServer] = None
@@ -79,14 +89,13 @@ class TargetLock:
 
         self.set_target(initial_target)
 
-    def handle_config(self, key: str, value: bool | str):
+    def handle_config(self, key: str, value):
         if key == "gesture":
             self.enable_gesture = value
             print(f"  [Config] Gesture Authorization: {'ENABLED' if value else 'DISABLED'}")
         elif key == "depth":
             self.enable_depth = value
             print(f"  [Config] Threat Assessment (Depth): {'ENABLED' if value else 'DISABLED'}")
-            # Lazy load DepthEstimator if toggled on
             if value and self._depth is None:
                 print("[Model] Loading MiDaS Depth Estimator (Dynamic)...")
                 try:
@@ -102,6 +111,40 @@ class TargetLock:
         elif key == "hudColor":
             self.renderer.hud_color = value
             print(f"  [Config] HUD Color: {value.upper()}")
+        elif key == "multiTarget":
+            self.enable_multi_target = value
+            print(f"  [Config] Multi-Target Display: {'ENABLED' if value else 'DISABLED'}")
+        elif key == "confidence":
+            thresh = float(value)
+            if self._pose:
+                self._pose.confidence_threshold = thresh
+            print(f"  [Config] Confidence Threshold: {thresh:.0%}")
+        elif key == "voice":
+            if value:
+                self._start_voice()
+            else:
+                self._stop_voice()
+
+
+    def _start_voice(self):
+        if self._voice_listener is not None:
+            return
+        try:
+            from tracker.voice_listener import VoiceListener
+            self._voice_listener = VoiceListener(on_command=self.set_target)
+            self._voice_listener.start()
+            self.enable_voice = True
+            print("  [Config] Voice Commands: ENABLED")
+        except ImportError as e:
+            print(f"  [Config] Voice unavailable: {e}")
+            self.enable_voice = False
+
+    def _stop_voice(self):
+        if self._voice_listener:
+            self._voice_listener.stop()
+            self._voice_listener = None
+        self.enable_voice = False
+        print("  [Config] Voice Commands: DISABLED")
 
     def _init_trackers(self):
         print("[Model] Loading MediaPipe Face Mesh...")
@@ -244,10 +287,11 @@ class TargetLock:
 
             with self._lock:
                 self.ai_raw_pos = best_pt
+                self.ai_all_pts = [p for p in all_pts if p != best_pt]  # secondary targets
                 self.ai_updated = True
                 if best_pt is not None:
                     self.last_known_pos = best_pt
-            
+
             # Yield briefly to not choke the CPU entirely
             time.sleep(0.005)
 
@@ -297,6 +341,7 @@ class TargetLock:
                 status = self.status
                 ai_updated = self.ai_updated
                 ai_raw_pos = self.ai_raw_pos
+                secondary_pts = list(self.ai_all_pts) if self.enable_multi_target else []
                 self.ai_updated = False
 
             target_pos = None
@@ -358,10 +403,16 @@ class TargetLock:
                 cv2.putText(frame, f"Target: {self.typed_text}_", (10, h-20),
                             cv2.FONT_HERSHEY_DUPLEX, 0.7, (0,255,80), 1)
 
+            # Get voice last heard for HUD display
+            voice_text = ""
+            if self._voice_listener and self.enable_voice:
+                voice_text = getattr(self._voice_listener, "last_heard", "")
+
             frame = self.renderer.draw(
                 frame=frame, target_pos=target_pos, target_label=label, target_emoji=emoji,
                 status=status, confidence=confidence, miss_frames=self.miss_frames,
                 help_text=help_txt if not headless else "",
+                secondary_pts=secondary_pts, voice_text=voice_text,
             )
 
             if not headless:

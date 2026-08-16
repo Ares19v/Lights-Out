@@ -60,6 +60,8 @@ class Renderer:
         confidence: float = 1.0,  # 0.0 - 1.0
         miss_frames: int = 0,
         help_text: str = "",
+        secondary_pts: list = None,
+        voice_text: str = "",
     ) -> np.ndarray:
         """Draw the full HUD onto frame (in-place). Returns frame."""
 
@@ -80,10 +82,16 @@ class Renderer:
             "LOCKED":    locked_color,
             "ACQUIRING": COLOR_ACQUIRING,
             "LOST":      COLOR_LOST,
-            "MANUAL":    locked_color, # Manual lock uses the same primary color
+            "MANUAL":    locked_color,
         }.get(status, COLOR_DIM)
 
-        # --- Crosshair ---
+        # --- Secondary crosshairs (dimmed, for multi-target display) ---
+        if secondary_pts:
+            dim_color = tuple(int(c * 0.35) for c in locked_color)
+            for sx, sy in secondary_pts:
+                self._draw_crosshair(frame, sx, sy, dim_color, t, "ACQUIRING")
+
+        # --- Primary crosshair ---
         if target_pos is not None:
             cx, cy = target_pos
             self._draw_crosshair(frame, cx, cy, color, t, status)
@@ -98,6 +106,11 @@ class Renderer:
         if status == "LOST" and miss_frames > 0:
             lt = f"Lost: {miss_frames}f"
             cv2.putText(frame, lt, (10, 30), FONT, 0.5, COLOR_LOST, 1, cv2.LINE_AA)
+
+        # --- Voice transcript ticker (bottom-left) ---
+        if voice_text:
+            ticker = f"MIC: {voice_text[:60]}"
+            self._draw_text_bg(frame, ticker, 10, h - 30, COLOR_DIM, scale=0.4)
 
         # --- Help text (bottom) ---
         if help_text:

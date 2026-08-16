@@ -34,8 +34,6 @@ class PoseTracker:
     Tracks the largest bounding-box person in frame.
     """
 
-    CONFIDENCE_THRESHOLD = 0.3
-
     def __init__(self, model_name: str = "yolov8n-pose.pt", device: str = "auto"):
         if not _YOLO_AVAILABLE:
             raise ImportError("ultralytics is not installed. Run: pip install ultralytics")
@@ -44,9 +42,6 @@ class PoseTracker:
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        # PyTorch 2.6+ defaults weights_only=True which blocks ultralytics .pt files.
-        # We patch torch.load temporarily so weights_only=False is used during load only.
-        # Safe: we downloaded this model from the official ultralytics CDN.
         _orig_load = torch.load
         def _patched_load(*args, **kwargs):
             kwargs.setdefault("weights_only", False)
@@ -57,24 +52,28 @@ class PoseTracker:
             print(f"[PoseTracker] Loading {model_name} on {device} ...")
             self.model = YOLO(model_name)
         finally:
-            torch.load = _orig_load  # always restore
+            torch.load = _orig_load
 
         self.device = device
-        self._keypoints: Optional[np.ndarray] = None  # shape (17, 3) -- x, y, conf
-        self._bbox_area: float = 0.0
+        self._all_keypoints = []
+        # Mutable confidence threshold — can be changed live from the UI
+        self.confidence_threshold: float = 0.3
+        # Auto-tune performance settings per device
+        self._use_half = (device == "cuda")
+        self._imgsz = 640 if device == "cuda" else 320
+        if device == "cuda":
+            import torch as _t
+            print(f"[PoseTracker] GPU: {_t.cuda.get_device_name(0)} — FP16 enabled, imgsz=640")
 
     def process(self, frame_bgr: np.ndarray):
-        """
-        Run YOLOv8 pose on a BGR frame.
-        Selects the largest detected person (by bounding box area).
-        """
+        """Run YOLOv8 pose on a BGR frame."""
         results = self.model(
             frame_bgr,
             device=self.device,
             verbose=False,
-            conf=self.CONFIDENCE_THRESHOLD,
-            imgsz=320,  # MASSIVELY improves FPS on CPU (default is 640)
-            half=False,
+            conf=self.confidence_threshold,
+            imgsz=self._imgsz,
+            half=self._use_half,
         )
 
         self._all_keypoints = []
@@ -91,15 +90,13 @@ class PoseTracker:
                 self._all_keypoints.append(kp_data)
 
     def get_all_keypoints(self, index: int) -> list[Tuple[int, int]]:
-        """
-        Return pixel (x, y) for COCO keypoint index for ALL detected people.
-        """
+        """Return pixel (x, y) for COCO keypoint index for ALL detected people."""
         results = []
         for kp in self._all_keypoints:
             if index >= len(kp):
                 continue
             x, y, conf = kp[index]
-            if conf >= self.CONFIDENCE_THRESHOLD:
+            if conf >= self.confidence_threshold:
                 results.append((int(x), int(y)))
         return results
 

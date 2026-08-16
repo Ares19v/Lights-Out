@@ -44,7 +44,15 @@ function App() {
   const [bodyExpanded, setBodyExpanded] = useState(false);
   
   const [showSettings, setShowSettings] = useState(false);
-  const [config, setConfig] = useState({ depth: false, gesture: false, crosshairStyle: "military", hudColor: "green" });
+  const [config, setConfig] = useState({
+    depth: false,
+    gesture: false,
+    crosshairStyle: "military",
+    hudColor: "green",
+    multiTarget: true,
+    voice: false,
+    confidence: 0.3,
+  });
 
   const videoRef     = useRef(null);
   const wsRef        = useRef(null);
@@ -501,6 +509,59 @@ function App() {
                   <option value="purple">Synthwave Purple</option>
                   <option value="white">Minimal White</option>
                 </select>
+              </div>
+
+              {/* Divider */}
+              <div style={{ borderTop: `1px solid ${colors.border}`, margin: "8px 0" }} />
+
+              {/* Multi-Target Display */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 600 }}>Multi-Target Display</div>
+                  <div style={{ fontSize: "12px", opacity: 0.7, marginTop: "4px" }}>Show dim secondary markers on all detected people.</div>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+                  <input type="checkbox" checked={config.multiTarget} onChange={() => toggleConfig("multiTarget")} style={{ display: "none" }} />
+                  <div style={{ width: "40px", height: "20px", borderRadius: "10px", backgroundColor: config.multiTarget ? colors.accent : colors.border, position: "relative", transition: "background-color 0.2s" }}>
+                    <div style={{ width: "16px", height: "16px", borderRadius: "50%", backgroundColor: "#fff", position: "absolute", top: "2px", left: config.multiTarget ? "22px" : "2px", transition: "left 0.2s" }} />
+                  </div>
+                </label>
+              </div>
+
+              {/* Voice Commands */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 600 }}>🎤 Voice Commands</div>
+                  <div style={{ fontSize: "12px", opacity: 0.7, marginTop: "4px" }}>Say "lock nose" or "track left shoulder". Requires Whisper.</div>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+                  <input type="checkbox" checked={config.voice} onChange={() => toggleConfig("voice")} style={{ display: "none" }} />
+                  <div style={{ width: "40px", height: "20px", borderRadius: "10px", backgroundColor: config.voice ? colors.accent : colors.border, position: "relative", transition: "background-color 0.2s" }}>
+                    <div style={{ width: "16px", height: "16px", borderRadius: "50%", backgroundColor: "#fff", position: "absolute", top: "2px", left: config.voice ? "22px" : "2px", transition: "left 0.2s" }} />
+                  </div>
+                </label>
+              </div>
+
+              {/* Confidence Threshold */}
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: 600 }}>Confidence Threshold</div>
+                    <div style={{ fontSize: "12px", opacity: 0.7, marginTop: "4px" }}>Min YOLO certainty required to commit a lock.</div>
+                  </div>
+                  <span style={{ fontSize: "14px", fontWeight: 600, color: colors.accent }}>{Math.round(config.confidence * 100)}%</span>
+                </div>
+                <input
+                  type="range" min="0" max="1" step="0.05"
+                  value={config.confidence}
+                  onChange={(e) => setConfig(prev => ({ ...prev, confidence: parseFloat(e.target.value) }))}
+                  onMouseUp={(e) => setConfigValue("confidence", parseFloat(e.target.value))}
+                  onTouchEnd={(e) => setConfigValue("confidence", parseFloat(e.target.value))}
+                  style={{ width: "100%", accentColor: colors.accent, cursor: "pointer" }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", opacity: 0.5, marginTop: "4px" }}>
+                  <span>Aggressive (0%)</span><span>Strict (100%)</span>
+                </div>
               </div>
             </div>
             

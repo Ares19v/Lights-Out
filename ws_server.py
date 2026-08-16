@@ -1,4 +1,4 @@
-﻿"""
+"""
 ws_server.py
 Lightweight asyncio WebSocket server that bridges the TargetLock
 processing pipeline to the React frontend.
@@ -33,11 +33,19 @@ class WSServer:
         self._clients: Set[websockets.WebSocketServerProtocol] = set()
         self._lock = asyncio.Lock()
         self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._target_callback = None   # called when frontend sends set_target
+        self._target_callback = None
+        self._shutdown_callback = None
+        self._config_callback = None
 
     def set_target_callback(self, fn):
-        """Register a callback: fn(target_str) called when frontend requests a target change."""
         self._target_callback = fn
+
+    def set_shutdown_callback(self, fn):
+        self._shutdown_callback = fn
+
+    def set_config_callback(self, fn):
+        """Register a callback: fn(key, value) called when frontend changes a setting."""
+        self._config_callback = fn
 
     # ── async internals ──────────────────────────────────────────────────────
     async def _handler(self, ws):
@@ -48,15 +56,21 @@ class WSServer:
             async for raw in ws:
                 try:
                     msg = json.loads(raw)
-                    if msg.get("cmd") == "set_target" and self._target_callback:
+                    cmd = msg.get("cmd")
+                    
+                    if cmd == "set_target" and self._target_callback:
                         target = msg.get("target", "").strip().lower()
                         if target:
-                            # Call on the main thread via thread-safe bridge
-                            threading.Thread(
-                                target=self._target_callback,
-                                args=(target,),
-                                daemon=True,
-                            ).start()
+                            threading.Thread(target=self._target_callback, args=(target,), daemon=True).start()
+                            
+                    elif cmd == "shutdown" and self._shutdown_callback:
+                        threading.Thread(target=self._shutdown_callback, daemon=True).start()
+                        
+                    elif cmd == "set_config" and self._config_callback:
+                        k = msg.get("key")
+                        v = msg.get("value")
+                        threading.Thread(target=self._config_callback, args=(k, v), daemon=True).start()
+                        
                 except json.JSONDecodeError:
                     pass
         except websockets.exceptions.ConnectionClosed:

@@ -32,6 +32,8 @@ class Renderer:
         self._start_time = time.time()
         self._frame_times: list[float] = []
         self._fps: float = 0.0
+        self.crosshair_style = 'military'  # Default style
+        self.hud_color = 'green'           # Default color
 
     # ---------------------------------------------------------------
     # FPS tracking
@@ -64,11 +66,21 @@ class Renderer:
         h, w = frame.shape[:2]
         t = time.time() - self._start_time  # elapsed time for animation
 
+        # Dynamic locked color based on user setting
+        locked_color = {
+            "green":  (0, 255, 80),
+            "cyan":   (255, 255, 0),
+            "red":    (50, 50, 255),
+            "white":  (255, 255, 255),
+            "purple": (255, 50, 255),
+            "amber":  (0, 180, 255),
+        }.get(getattr(self, "hud_color", "green"), (0, 255, 80))
+
         color = {
-            "LOCKED":    COLOR_LOCKED,
+            "LOCKED":    locked_color,
             "ACQUIRING": COLOR_ACQUIRING,
             "LOST":      COLOR_LOST,
-            "MANUAL":    COLOR_MANUAL,
+            "MANUAL":    locked_color, # Manual lock uses the same primary color
         }.get(status, COLOR_DIM)
 
         # --- Crosshair ---
@@ -76,11 +88,9 @@ class Renderer:
             cx, cy = target_pos
             self._draw_crosshair(frame, cx, cy, color, t, status)
 
-        # --- Status ring label ---
-        if target_pos is not None:
-            cx, cy = target_pos
-            label = f"{target_emoji} {target_label}  [{status}]"
-            self._draw_text_bg(frame, label, cx + 18, cy - 18, color, scale=0.55)
+            # Formal HUD text formatting
+            label = f"TGT: {target_label.upper()} [{status}]"
+            self._draw_text_bg(frame, label, cx + 12, cy - 12, color, scale=0.45)
 
         # FPS and Confidence have been moved to the React UI outside the video frame
 
@@ -106,38 +116,75 @@ class Renderer:
         t: float,
         status: str,
     ):
-        """Animated crosshair: 4 corner brackets + pulsing circle."""
-        size = 24
-        gap  = 8
-        thickness = 2
+        """Draws the selected crosshair style."""
+        style = getattr(self, "crosshair_style", "military")
 
-        # Corner bracket arms
-        # Top-left
-        cv2.line(frame, (cx - size, cy - gap), (cx - size, cy - size), color, thickness, cv2.LINE_AA)
-        cv2.line(frame, (cx - gap, cy - size), (cx - size, cy - size), color, thickness, cv2.LINE_AA)
-        # Top-right
-        cv2.line(frame, (cx + size, cy - gap), (cx + size, cy - size), color, thickness, cv2.LINE_AA)
-        cv2.line(frame, (cx + gap, cy - size), (cx + size, cy - size), color, thickness, cv2.LINE_AA)
-        # Bottom-left
-        cv2.line(frame, (cx - size, cy + gap), (cx - size, cy + size), color, thickness, cv2.LINE_AA)
-        cv2.line(frame, (cx - gap, cy + size), (cx - size, cy + size), color, thickness, cv2.LINE_AA)
-        # Bottom-right
-        cv2.line(frame, (cx + size, cy + gap), (cx + size, cy + size), color, thickness, cv2.LINE_AA)
-        cv2.line(frame, (cx + gap, cy + size), (cx + size, cy + size), color, thickness, cv2.LINE_AA)
+        if style == "military":
+            thickness = 1
+            cv2.circle(frame, (cx, cy), 1, color, -1, cv2.LINE_AA)
+            size = 20
+            length = 8
+            if status == "ACQUIRING": size += int(4 * abs(math.sin(t * 5)))
+            
+            cv2.line(frame, (cx - size, cy - size), (cx - size + length, cy - size), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx - size, cy - size), (cx - size, cy - size + length), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx + size, cy - size), (cx + size - length, cy - size), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx + size, cy - size), (cx + size, cy - size + length), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx - size, cy + size), (cx - size + length, cy + size), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx - size, cy + size), (cx - size, cy + size - length), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx + size, cy + size), (cx + size - length, cy + size), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx + size, cy + size), (cx + size, cy + size - length), color, thickness, cv2.LINE_AA)
 
-        # Pulsing center dot
-        pulse_r = int(3 + 2 * abs(math.sin(t * 4)))
-        cv2.circle(frame, (cx, cy), pulse_r, color, -1, cv2.LINE_AA)
-
-        # Spinning arc for ACQUIRING state
-        if status == "ACQUIRING":
-            angle = (t * 200) % 360
-            cv2.ellipse(frame, (cx, cy), (size + 4, size + 4),
-                        angle, 0, 120, color, 2, cv2.LINE_AA)
-
-        # Static circle for LOCKED / MANUAL
-        elif status in ("LOCKED", "MANUAL"):
-            cv2.circle(frame, (cx, cy), size + 4, color, 1, cv2.LINE_AA)
+            if status in ("LOCKED", "MANUAL"):
+                gap, outer = 10, 35
+                cv2.line(frame, (cx, cy - outer), (cx, cy - gap), color, thickness, cv2.LINE_AA)
+                cv2.line(frame, (cx, cy + gap), (cx, cy + outer), color, thickness, cv2.LINE_AA)
+                cv2.line(frame, (cx - outer, cy), (cx - gap, cy), color, thickness, cv2.LINE_AA)
+                cv2.line(frame, (cx + gap, cy), (cx + outer, cy), color, thickness, cv2.LINE_AA)
+                
+        elif style == "classic":
+            size, gap, thickness = 24, 8, 2
+            cv2.line(frame, (cx - size, cy - gap), (cx - size, cy - size), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx - gap, cy - size), (cx - size, cy - size), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx + size, cy - gap), (cx + size, cy - size), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx + gap, cy - size), (cx + size, cy - size), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx - size, cy + gap), (cx - size, cy + size), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx - gap, cy + size), (cx - size, cy + size), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx + size, cy + gap), (cx + size, cy + size), color, thickness, cv2.LINE_AA)
+            cv2.line(frame, (cx + gap, cy + size), (cx + size, cy + size), color, thickness, cv2.LINE_AA)
+            pulse_r = int(3 + 2 * abs(math.sin(t * 4)))
+            cv2.circle(frame, (cx, cy), pulse_r, color, -1, cv2.LINE_AA)
+            if status == "ACQUIRING":
+                angle = (t * 200) % 360
+                cv2.ellipse(frame, (cx, cy), (size + 4, size + 4), angle, 0, 120, color, 2, cv2.LINE_AA)
+            elif status in ("LOCKED", "MANUAL"):
+                cv2.circle(frame, (cx, cy), size + 4, color, 1, cv2.LINE_AA)
+                
+        elif style == "minimal":
+            cv2.circle(frame, (cx, cy), 1, color, -1, cv2.LINE_AA)
+            if status in ("LOCKED", "MANUAL"):
+                cv2.line(frame, (cx - 12, cy), (cx - 4, cy), color, 1, cv2.LINE_AA)
+                cv2.line(frame, (cx + 4, cy), (cx + 12, cy), color, 1, cv2.LINE_AA)
+                cv2.line(frame, (cx, cy - 12), (cx, cy - 4), color, 1, cv2.LINE_AA)
+                cv2.line(frame, (cx, cy + 4), (cx, cy + 12), color, 1, cv2.LINE_AA)
+            elif status == "ACQUIRING":
+                size = 12 + int(4 * abs(math.sin(t * 3)))
+                cv2.line(frame, (cx - size, cy - size//2), (cx - size, cy + size//2), color, 1, cv2.LINE_AA)
+                cv2.line(frame, (cx + size, cy - size//2), (cx + size, cy + size//2), color, 1, cv2.LINE_AA)
+                
+        elif style == "sniper":
+            h, w = frame.shape[:2]
+            cv2.circle(frame, (cx, cy), 40, color, 1, cv2.LINE_AA)
+            cv2.circle(frame, (cx, cy), 2, color, -1, cv2.LINE_AA)
+            if status in ("LOCKED", "MANUAL"):
+                cv2.line(frame, (0, cy), (cx - 40, cy), color, 1, cv2.LINE_AA)
+                cv2.line(frame, (cx + 40, cy), (w, cy), color, 1, cv2.LINE_AA)
+                cv2.line(frame, (cx, 0), (cx, cy - 40), color, 1, cv2.LINE_AA)
+                cv2.line(frame, (cx, cy + 40), (cx, h), color, 1, cv2.LINE_AA)
+                
+        elif style == "dot":
+            pulse_r = int(2 + 2 * abs(math.sin(t * 6))) if status == "ACQUIRING" else 4
+            cv2.circle(frame, (cx, cy), pulse_r, color, -1, cv2.LINE_AA)
 
     def _draw_text_bg(
         self,
@@ -145,7 +192,7 @@ class Renderer:
         text: str,
         x: int, y: int,
         color: Tuple[int, int, int],
-        scale: float = 0.55,
+        scale: float = 0.45,
     ):
         """Draw text with a semi-transparent dark background."""
         thickness = 1 if scale < 0.6 else 2

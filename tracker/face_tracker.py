@@ -44,7 +44,7 @@ class FaceTracker:
         options = mp_vision.FaceLandmarkerOptions(
             base_options=base_options,
             running_mode=mp_vision.RunningMode.VIDEO,   # VIDEO mode for real-time streams
-            num_faces=1,
+            num_faces=5,  # Track up to 5 faces for multi-target logic
             min_face_detection_confidence=min_confidence,
             min_face_presence_confidence=min_confidence,
             min_tracking_confidence=min_confidence,
@@ -54,37 +54,41 @@ class FaceTracker:
         self._frame_ts_ms: int = 0
 
     def process(self, frame_rgb: np.ndarray):
-        """Run face landmarker on an RGB frame. Call before get_landmark()."""
+        """Run face landmarker on an RGB frame. Call before get_all_landmarks()."""
         # Increment timestamp — must be strictly increasing in VIDEO mode
         self._frame_ts_ms += 1
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
         self._detection_result = self._landmarker.detect_for_video(mp_image, self._frame_ts_ms)
 
+    def get_all_landmarks(self, index: int, frame_w: int, frame_h: int, 
+                          index2: Optional[int] = None) -> list[Tuple[int, int]]:
+        """Return a list of pixel (x, y) for landmark `index` across ALL detected faces."""
+        if not self._detection_result or not self._detection_result.face_landmarks:
+            return []
+
+        results = []
+        for lms in self._detection_result.face_landmarks:
+            try:
+                lm = lms[index]
+                x = int(lm.x * frame_w)
+                y = int(lm.y * frame_h)
+
+                if index2 is not None:
+                    lm2 = lms[index2]
+                    x = (x + int(lm2.x * frame_w)) // 2
+                    y = (y + int(lm2.y * frame_h)) // 2
+
+                results.append((x, y))
+            except IndexError:
+                continue
+                
+        return results
+
     def get_landmark(self, index: int, frame_w: int, frame_h: int,
                      index2: Optional[int] = None) -> Optional[Tuple[int, int]]:
-        """
-        Return pixel (x, y) for landmark `index`.
-        If index2 is given, return the midpoint of index and index2.
-        Returns None if no face detected.
-        """
-        if not self._detection_result or not self._detection_result.face_landmarks:
-            return None
-
-        lms = self._detection_result.face_landmarks[0]
-
-        try:
-            lm = lms[index]
-            x = int(lm.x * frame_w)
-            y = int(lm.y * frame_h)
-
-            if index2 is not None:
-                lm2 = lms[index2]
-                x = (x + int(lm2.x * frame_w)) // 2
-                y = (y + int(lm2.y * frame_h)) // 2
-
-            return x, y
-        except IndexError:
-            return None
+        """Legacy: Returns the first detected face's landmark."""
+        res = self.get_all_landmarks(index, frame_w, frame_h, index2)
+        return res[0] if res else None
 
     @property
     def has_face(self) -> bool:

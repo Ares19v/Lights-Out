@@ -42,11 +42,23 @@ function App() {
 
   const [faceExpanded, setFaceExpanded] = useState(true);
   const [bodyExpanded, setBodyExpanded] = useState(false);
+  
+  const [showSettings, setShowSettings] = useState(false);
+  const [config, setConfig] = useState({ depth: false, gesture: false, crosshairStyle: "military", hudColor: "green" });
 
   const videoRef     = useRef(null);
   const wsRef        = useRef(null);
   const lastFrameTs  = useRef(Date.now());
   const colors       = THEMES[theme];
+
+  const setConfigValue = (key, value) => {
+    setConfig(prev => ({ ...prev, [key]: value }));
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ cmd: "set_config", key, value }));
+    }
+  };
+
+  const toggleConfig = (key) => setConfigValue(key, !config[key]);
 
   // ── WebSocket connection ──────────────────────────────────────────────────
   useEffect(() => {
@@ -109,6 +121,12 @@ function App() {
       setCurrentTarget(trimmed);
     }
     setTargetInput("");
+  };
+
+  const sendShutdown = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ cmd: "shutdown" }));
+    }
   };
 
   const statusColor = {
@@ -351,8 +369,145 @@ function App() {
             </div>
           </div>
 
+          {/* Footer Controls */}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "16px", marginTop: "auto", paddingTop: "12px" }}>
+            <span 
+              onClick={() => setShowSettings(true)}
+              style={{ 
+                cursor: "pointer", fontSize: "16px", color: colors.text, opacity: 0.3, 
+                transition: "opacity 0.2s"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = 0.3}
+              title="Engine Settings"
+            >
+              ⚙️
+            </span>
+            <span 
+              onClick={sendShutdown}
+              style={{ 
+                cursor: "pointer", fontSize: "16px", color: colors.text, opacity: 0.3, 
+                transition: "opacity 0.2s"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = 0.3}
+              title="Shutdown Engine"
+            >
+              ⏻
+            </span>
+          </div>
+
         </div>
       </div>
+
+      {/* Settings Modal Overlay */}
+      {showSettings && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+          backgroundColor: "rgba(0,0,0,0.6)", zIndex: 1000,
+          display: "flex", justifyContent: "center", alignItems: "center"
+        }}>
+          <div style={{
+            backgroundColor: colors.panel, border: `1px solid ${colors.border}`,
+            borderRadius: "12px", padding: "24px", width: "400px", maxWidth: "90%",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.3)"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <h2 style={{ margin: 0, fontSize: "18px", color: colors.accent, fontWeight: 600 }}>Engine Configuration</h2>
+              <span onClick={() => setShowSettings(false)} style={{ cursor: "pointer", fontSize: "18px", opacity: 0.6 }}>✕</span>
+            </div>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 600 }}>Threat Assessment (Multi-Lock)</div>
+                  <div style={{ fontSize: "12px", opacity: 0.7, marginTop: "4px" }}>Use MiDaS Z-Axis Depth to snap to the closest person.</div>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+                  <input type="checkbox" checked={config.depth} onChange={() => toggleConfig("depth")} style={{ display: "none" }} />
+                  <div style={{
+                    width: "40px", height: "20px", borderRadius: "10px", 
+                    backgroundColor: config.depth ? colors.accent : colors.border,
+                    position: "relative", transition: "background-color 0.2s"
+                  }}>
+                    <div style={{
+                      width: "16px", height: "16px", borderRadius: "50%", backgroundColor: "#fff",
+                      position: "absolute", top: "2px", left: config.depth ? "22px" : "2px",
+                      transition: "left 0.2s"
+                    }} />
+                  </div>
+                </label>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 600 }}>Gesture Authorization</div>
+                  <div style={{ fontSize: "12px", opacity: 0.7, marginTop: "4px" }}>Only track subjects who raise their hand.</div>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+                  <input type="checkbox" checked={config.gesture} onChange={() => toggleConfig("gesture")} style={{ display: "none" }} />
+                  <div style={{
+                    width: "40px", height: "20px", borderRadius: "10px", 
+                    backgroundColor: config.gesture ? colors.accent : colors.border,
+                    position: "relative", transition: "background-color 0.2s"
+                  }}>
+                    <div style={{
+                      width: "16px", height: "16px", borderRadius: "50%", backgroundColor: "#fff",
+                      position: "absolute", top: "2px", left: config.gesture ? "22px" : "2px",
+                      transition: "left 0.2s"
+                    }} />
+                  </div>
+                </label>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", paddingTop: "16px", borderTop: `1px solid ${colors.border}` }}>
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 600 }}>Crosshair Style</div>
+                  <div style={{ fontSize: "12px", opacity: 0.7, marginTop: "4px" }}>Visual design of the targeting HUD.</div>
+                </div>
+                <select 
+                  value={config.crosshairStyle} 
+                  onChange={(e) => setConfigValue("crosshairStyle", e.target.value)}
+                  style={{
+                    backgroundColor: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+                    padding: "6px 12px", borderRadius: "6px", fontSize: "13px", outline: "none", cursor: "pointer"
+                  }}
+                >
+                  <option value="military">Military (Default)</option>
+                  <option value="classic">Classic</option>
+                  <option value="minimal">Minimalist</option>
+                  <option value="sniper">Sniper Scope</option>
+                  <option value="dot">Dot Only</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 600 }}>HUD Color</div>
+                  <div style={{ fontSize: "12px", opacity: 0.7, marginTop: "4px" }}>Primary color for active locks.</div>
+                </div>
+                <select 
+                  value={config.hudColor} 
+                  onChange={(e) => setConfigValue("hudColor", e.target.value)}
+                  style={{
+                    backgroundColor: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+                    padding: "6px 12px", borderRadius: "6px", fontSize: "13px", outline: "none", cursor: "pointer"
+                  }}
+                >
+                  <option value="green">Neon Green (Default)</option>
+                  <option value="cyan">Tactical Cyan</option>
+                  <option value="red">Danger Red</option>
+                  <option value="amber">Amber</option>
+                  <option value="purple">Synthwave Purple</option>
+                  <option value="white">Minimal White</option>
+                </select>
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

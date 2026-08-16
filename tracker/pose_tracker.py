@@ -77,8 +77,7 @@ class PoseTracker:
             half=False,
         )
 
-        self._keypoints = None
-        self._bbox_area = 0.0
+        self._all_keypoints = []
 
         for result in results:
             if result.keypoints is None or len(result.keypoints) == 0:
@@ -86,35 +85,29 @@ class PoseTracker:
             if result.boxes is None:
                 continue
 
-            # Pick the largest detected person
-            for i, box in enumerate(result.boxes.xyxy):
-                x1, y1, x2, y2 = box.cpu().numpy()
-                area = (x2 - x1) * (y2 - y1)
-                if area > self._bbox_area:
-                    self._bbox_area = area
-                    kp_data = result.keypoints.data[i].cpu().numpy()  # (17, 3)
-                    self._keypoints = kp_data
+            # Store keypoints for ALL detected people
+            for i in range(len(result.boxes.xyxy)):
+                kp_data = result.keypoints.data[i].cpu().numpy()  # (17, 3)
+                self._all_keypoints.append(kp_data)
+
+    def get_all_keypoints(self, index: int) -> list[Tuple[int, int]]:
+        """
+        Return pixel (x, y) for COCO keypoint index for ALL detected people.
+        """
+        results = []
+        for kp in self._all_keypoints:
+            if index >= len(kp):
+                continue
+            x, y, conf = kp[index]
+            if conf >= self.CONFIDENCE_THRESHOLD:
+                results.append((int(x), int(y)))
+        return results
 
     def get_keypoint(self, index: int) -> Optional[Tuple[int, int]]:
-        """
-        Return pixel (x, y) for COCO keypoint index.
-        Returns None if not detected or confidence too low.
-        """
-        if self._keypoints is None:
-            return None
-        if index >= len(self._keypoints):
-            return None
-
-        x, y, conf = self._keypoints[index]
-        if conf < self.CONFIDENCE_THRESHOLD:
-            return None
-
-        return int(x), int(y)
+        """Legacy method: return the first valid keypoint found."""
+        kps = self.get_all_keypoints(index)
+        return kps[0] if kps else None
 
     @property
     def has_person(self) -> bool:
-        return self._keypoints is not None
-
-    @property
-    def all_keypoints(self) -> Optional[np.ndarray]:
-        return self._keypoints
+        return len(self._all_keypoints) > 0

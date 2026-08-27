@@ -26,5 +26,6 @@
     "postcss": "^8.5.9",
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.4"
-  }
+  },
+  "description": "High-framerate computer vision target acquisition and tracking system with real-time HUD screen overlay."
 }

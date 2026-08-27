@@ -174,15 +174,21 @@ Benchmarked on **NVIDIA GeForce RTX 5060 Laptop GPU** @ CUDA 12.8
 | 
 ose / 
 ose tip | Nose tip (#4) |
-| orehead | Forehead center (#10) |
+| 
+orehead | Forehead center (#10) |
 | chin / jaw | Chin (#152) |
-| left eye / ight eye | Eye outer corners |
-| left eye inner / ight eye inner | Eye inner corners |
-| left eyebrow / ight eyebrow | Eyebrows |
+| left eye / 
+ight eye | Eye outer corners |
+| left eye inner / 
+ight eye inner | Eye inner corners |
+| left eyebrow / 
+ight eyebrow | Eyebrows |
 | mouth / lips | Mouth center (averaged) |
 | upper lip / lower lip | Lips individual |
-| left cheek / ight cheek | Cheekbones |
-| left ear / ight ear | Ears |
+| left cheek / 
+ight cheek | Cheekbones |
+| left ear / 
+ight ear | Ears |
 
 </details>
 
@@ -191,12 +197,18 @@ ose tip | Nose tip (#4) |
 
 | Keyword | Keypoint |
 |---------|----------|
-| left shoulder / ight shoulder | Shoulder joints (#5, #6) |
-| left elbow / ight elbow / elbow | Elbow joints (#7, #8) |
-| left wrist / ight wrist / wrist | Wrist joints (#9, #10) |
-| left hip / ight hip / hip | Hip joints (#11, #12) |
-| left knee / ight knee / knee | Knee joints (#13, #14) |
-| left ankle / ight ankle / nkle | Ankle joints (#15, #16) |
+| left shoulder / 
+ight shoulder | Shoulder joints (#5, #6) |
+| left elbow / 
+ight elbow / elbow | Elbow joints (#7, #8) |
+| left wrist / 
+ight wrist / wrist | Wrist joints (#9, #10) |
+| left hip / 
+ight hip / hip | Hip joints (#11, #12) |
+| left knee / 
+ight knee / knee | Knee joints (#13, #14) |
+| left ankle / 
+ight ankle / nkle | Ankle joints (#15, #16) |
 
 </details>
 
@@ -218,6 +230,9 @@ ose tip | Nose tip (#4) |
 `ash
 # Clone the repo
 git clone https://github.com/Ares19v/Lights-Out.git
+
+[![CI](https://github.com/Ares19v/Lights-Out/actions/workflows/ci.yml/badge.svg)](https://github.com/Ares19v/Lights-Out/actions/workflows/ci.yml)
+
 cd Lights-Out
 
 # Create a virtual environment
@@ -307,7 +322,8 @@ Access via the **⚙️** button next to the title bar.
 | Setting | Description |
 |---------|-------------|
 | **HUD Color** | RGB color of the crosshair and overlays |
-| **Crosshair Style** | crosshair / dot / circle / eticle |
+| **Crosshair Style** | crosshair / dot / circle / 
+eticle |
 | **Multi-Target Display** | Show ghost crosshairs on background targets |
 | **Voice Commands** | Toggle Whisper listener on/off |
 | **Gesture Authorization** | Only track when wrist is raised above shoulder |

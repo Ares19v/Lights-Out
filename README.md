@@ -16,9 +16,9 @@
 > **Real-time GPU-accelerated auto-targeting system.**  
 > Powered by MediaPipe · YOLOv8 · MiDaS · Whisper · CUDA FP16.
 
-<img src="https://img.shields.io/badge/%E2%9A%A1%20Engine-100%2B%20FPS-ff0000?style=for-the-badge" />
-<img src="https://img.shields.io/badge/%F0%9F%8E%AF%20Targets-30%2B%20Landmarks-blueviolet?style=for-the-badge" />
-<img src="https://img.shields.io/badge/%F0%9F%8E%99%EF%B8%8F%20Voice-Whisper%20base.en-green?style=for-the-badge" />
+<img src="https://img.shields.io/badge/⚡%20Engine-100%2B%20FPS-ff0000?style=for-the-badge" />
+<img src="https://img.shields.io/badge/🎯%20Targets-30%2B%20Landmarks-blueviolet?style=for-the-badge" />
+<img src="https://img.shields.io/badge/🎙️%20Voice-Whisper%20base.en-green?style=for-the-badge" />
 
 </div>
 
@@ -71,8 +71,7 @@ The system exposes a sleek React dashboard via WebSocket that lets you monitor y
 
 ### 🎯 Targeting Engine
 - **Dual-model inference** — MediaPipe Face Mesh (478 landmarks) runs in parallel with YOLOv8n-Pose (17 body keypoints)
-- **30+ named targets** — From 
-ose tip to left ankle
+- **30+ named targets** — From nose tip to left ankle
 - **Kalman Filter prediction** — Continues tracking through brief occlusions
 - **Optical Flow tracking** — Lucas-Kanade algorithm bridges AI frames at 60+ FPS
 - **Click-to-lock** — Manually lock any pixel on screen
@@ -92,8 +91,8 @@ ose tip to left ankle
 <td width="50%">
 
 ### 🎙️ Voice Control
-- **OpenAI Whisper ase.en** — Fully local, offline, no API key
-- **Strict syntax** — Must say lock <target> or 	rack <target> — accidental triggers impossible
+- **OpenAI Whisper base.en** — Fully local, offline, no API key
+- **Strict syntax** — Must say lock <target> or track <target> — accidental triggers impossible
 - **Prompt-biased decoder** — Whisper pre-seeded with all valid target phrases for max accuracy
 - **CPU offloaded** — Runs entirely on CPU to keep GPU free for the visual pipeline
 
@@ -171,24 +170,16 @@ Benchmarked on **NVIDIA GeForce RTX 5060 Laptop GPU** @ CUDA 12.8
 
 | Keyword | Landmark |
 |---------|----------|
-| 
-ose / 
-ose tip | Nose tip (#4) |
-| 
-orehead | Forehead center (#10) |
+| nose / nose tip | Nose tip (#4) |
+| forehead | Forehead center (#10) |
 | chin / jaw | Chin (#152) |
-| left eye / 
-ight eye | Eye outer corners |
-| left eye inner / 
-ight eye inner | Eye inner corners |
-| left eyebrow / 
-ight eyebrow | Eyebrows |
+| left eye / right eye | Eye outer corners |
+| left eye inner / right eye inner | Eye inner corners |
+| left eyebrow / right eyebrow | Eyebrows |
 | mouth / lips | Mouth center (averaged) |
 | upper lip / lower lip | Lips individual |
-| left cheek / 
-ight cheek | Cheekbones |
-| left ear / 
-ight ear | Ears |
+| left cheek / right cheek | Cheekbones |
+| left ear / right ear | Ears |
 
 </details>
 
@@ -197,18 +188,12 @@ ight ear | Ears |
 
 | Keyword | Keypoint |
 |---------|----------|
-| left shoulder / 
-ight shoulder | Shoulder joints (#5, #6) |
-| left elbow / 
-ight elbow / elbow | Elbow joints (#7, #8) |
-| left wrist / 
-ight wrist / wrist | Wrist joints (#9, #10) |
-| left hip / 
-ight hip / hip | Hip joints (#11, #12) |
-| left knee / 
-ight knee / knee | Knee joints (#13, #14) |
-| left ankle / 
-ight ankle / nkle | Ankle joints (#15, #16) |
+| left shoulder / right shoulder | Shoulder joints (#5, #6) |
+| left elbow / right elbow / elbow | Elbow joints (#7, #8) |
+| left wrist / right wrist / wrist | Wrist joints (#9, #10) |
+| left hip / right hip / hip | Hip joints (#11, #12) |
+| left knee / right knee / knee | Knee joints (#13, #14) |
+| left ankle / right ankle / ankle | Ankle joints (#15, #16) |
 
 </details>
 
@@ -227,7 +212,8 @@ ight ankle / nkle | Ankle joints (#15, #16) |
 
 ### Step 1 — Python Backend
 
-`ash
+`
+bash
 # Clone the repo
 git clone https://github.com/Ares19v/Lights-Out.git
 
@@ -245,7 +231,8 @@ pip install -r requirements.txt
 `
 
 #### 🔥 GPU Acceleration (NVIDIA RTX — Highly Recommended)
-`ash
+`
+bash
 # Uninstall the CPU-only torch that came with requirements.txt
 pip uninstall torch torchvision torchaudio -y
 
@@ -259,7 +246,8 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 ### Step 2 — React Frontend
 
-`ash
+`
+bash
 cd frontend
 npm install
 `
@@ -271,12 +259,14 @@ npm install
 Open **two terminals** from the project root.
 
 **Terminal 1 — Python Engine:**
-`ash
+`
+bash
 python main.py --ws
 `
 
 **Terminal 2 — React Dashboard:**
-`ash
+`
+bash
 cd frontend
 npm run dev
 `
@@ -311,7 +301,7 @@ python main.py [OPTIONS]
 "track chin"          → 🎯 Tracks chin/jaw
 `
 
-> ⚠️ You **must** say either lock or 	rack before the target. Saying just "nose" is intentionally ignored to prevent accidental triggers.
+> ⚠️ You **must** say either lock or track before the target. Saying just "nose" is intentionally ignored to prevent accidental triggers.
 
 ---
 
@@ -322,8 +312,7 @@ Access via the **⚙️** button next to the title bar.
 | Setting | Description |
 |---------|-------------|
 | **HUD Color** | RGB color of the crosshair and overlays |
-| **Crosshair Style** | crosshair / dot / circle / 
-eticle |
+| **Crosshair Style** | crosshair / dot / circle / reticle |
 | **Multi-Target Display** | Show ghost crosshairs on background targets |
 | **Voice Commands** | Toggle Whisper listener on/off |
 | **Gesture Authorization** | Only track when wrist is raised above shoulder |
@@ -340,7 +329,7 @@ eticle |
 | Layer | Technology |
 |-------|-----------|
 | **AI Vision** | MediaPipe Face Mesh · YOLOv8n-Pose · MiDaS DPT |
-| **Voice AI** | OpenAI Whisper ase.en (offline) |
+| **Voice AI** | OpenAI Whisper base.en (offline) |
 | **GPU Runtime** | PyTorch 2.11 · CUDA 12.8 · FP16 |
 | **Tracking Math** | Kalman Filter · Lucas-Kanade Optical Flow · 1 Euro Filter |
 | **Backend** | Python 3.10 · asyncio WebSockets |
@@ -358,7 +347,7 @@ eticle |
 - [x] MiDaS monocular depth for closest-target prioritization  
 - [x] Kalman + Optical Flow smooth tracking  
 - [x] React WebSocket dashboard  
-- [x] Voice command system (Whisper ase.en, strict syntax)  
+- [x] Voice command system (Whisper base.en, strict syntax)  
 - [x] Multi-target secondary crosshair display  
 - [x] Confidence threshold & gesture authorization  
 - [ ] RTSP stream input support (IP cameras)  
@@ -375,3 +364,9 @@ eticle |
 *For educational and research purposes only.*
 
 </div>
+
+---
+
+© 2025 Devansh Tyagi (Ares19v). All Rights Reserved.
+
+Unauthorized copying, modification, distribution, or use of this project or any of its components, in whole or in part, without explicit written permission from the author is strictly prohibited.
